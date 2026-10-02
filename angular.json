@@ -56,7 +56,7 @@
           "configurations": {
             "production": {
               "budgets": [],
-              "outputHashing": "none",
+              "outputHashing": "all",
               "optimization": {
                 "scripts": true,
                 "styles": {
