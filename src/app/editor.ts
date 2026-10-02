@@ -10,6 +10,7 @@ interface Draft {
   status: Status;
   assignee: string | null;
   estimate: number | null;
+  start: string;
   due: string;
 }
 
@@ -53,16 +54,22 @@ interface Draft {
         </select>
       </label>
 
-      <div class="row">
+      <div class="row three">
         <label class="f">
           <span>Estimación (h)</span>
           <input id="f-estimate" name="estimate" type="number" min="0" step="0.5" inputmode="decimal" [(ngModel)]="d.estimate" placeholder="0" />
+        </label>
+        <label class="f">
+          <span>Inicio</span>
+          <input id="f-start" name="start" type="date" [(ngModel)]="d.start" />
         </label>
         <label class="f">
           <span>Fecha límite</span>
           <input id="f-due" name="due" type="date" [(ngModel)]="d.due" />
         </label>
       </div>
+
+      @if (dateError()) { <em class="err">El inicio tiene que ser anterior a la fecha límite.</em> }
 
       <label class="f">
         <span>Notas</span>
@@ -113,6 +120,8 @@ interface Draft {
     #f-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 4px 0 12px; }
     #f-title:focus { border-bottom-color: var(--ink); }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row.three { grid-template-columns: 0.8fr 1fr 1fr; }
+    @media (max-width: 480px) { .row.three { grid-template-columns: 1fr 1fr; } .row.three > :first-child { grid-column: 1 / -1; } }
     .search { position: relative; }
     .search ul { list-style: none; margin: 4px 0 0; padding: 4px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
     .search li button { width: 100%; display: flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 6px 8px; border-radius: var(--r-sm); text-align: left; }
@@ -135,8 +144,9 @@ export class Editor implements OnInit {
   readonly statuses = STATUSES;
   readonly titleError = signal(false);
   readonly confirmDelete = signal(false);
+  readonly dateError = signal(false);
 
-  d: Draft = { title: '', notes: '', product: 'P1', status: 'todo', assignee: null, estimate: null, due: '' };
+  d: Draft = { title: '', notes: '', product: 'P1', status: 'todo', assignee: null, estimate: null, start: '', due: '' };
 
   ngOnInit() {
     const t = this.task();
@@ -148,6 +158,7 @@ export class Editor implements OnInit {
         status: t.status,
         assignee: t.assignee,
         estimate: t.estimate || null,
+        start: t.start ?? '',
         due: t.due ?? '',
       };
     } else {
@@ -164,6 +175,10 @@ export class Editor implements OnInit {
       (document.getElementById('f-title') as HTMLInputElement | null)?.focus();
       return;
     }
+    if (this.d.start && this.d.due && this.d.start > this.d.due) {
+      this.dateError.set(true);
+      return;
+    }
     const n = this.d.estimate;
     const data = {
       title,
@@ -172,6 +187,7 @@ export class Editor implements OnInit {
       status: this.d.status,
       assignee: this.d.assignee,
       estimate: typeof n === 'number' && isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : 0,
+      start: this.d.start || null,
       due: this.d.due || null,
     };
     const t = this.task();

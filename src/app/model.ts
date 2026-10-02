@@ -9,6 +9,7 @@ export interface Task {
   status: Status;
   assignee: string | null;
   estimate: number; // horas
+  start: string | null; // YYYY-MM-DD, inicio previsto (cronograma)
   due: string | null; // YYYY-MM-DD
   rank: number;
   createdAt: number;
@@ -44,6 +45,11 @@ export const PRODUCT_BY_ID: Record<Product, ProductInfo> = Object.fromEntries(
   PRODUCTS.map((p) => [p.id, p]),
 ) as Record<Product, ProductInfo>;
 
+export function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /** Días entre hoy y una fecha ISO (negativo si ya pasó). */
 export function daysUntil(iso: string): number {
   const [y, m, d] = iso.split('-').map(Number);
@@ -60,6 +66,8 @@ export function shortDate(iso: string): string {
 }
 
 /** Normaliza un documento de Firestore (puede venir incompleto). */
+const isoOrNull = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+
 export function toTask(id: string, d: Record<string, unknown>): Task {
   const st = d['status'];
   const pr = d['product'];
@@ -72,10 +80,21 @@ export function toTask(id: string, d: Record<string, unknown>): Task {
     status: (['todo', 'doing', 'review', 'done'] as string[]).includes(st as string) ? (st as Status) : 'todo',
     assignee: typeof d['assignee'] === 'string' ? (d['assignee'] as string) : null,
     estimate: num(d['estimate']),
-    due: typeof d['due'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d['due'] as string) ? (d['due'] as string) : null,
+    start: isoOrNull(d['start']),
+    due: isoOrNull(d['due']),
     rank: typeof d['rank'] === 'number' ? (d['rank'] as number) : 0,
     createdAt: num(d['createdAt']),
     createdBy: typeof d['createdBy'] === 'string' ? (d['createdBy'] as string) : null,
     doneAt: typeof d['doneAt'] === 'number' ? (d['doneAt'] as number) : null,
   };
+}
+
+/** Fecha ISO (YYYY-MM-DD) → número de días desde 1970 (UTC). */
+export function dayNum(iso: string): number {
+  const [y, m, d] = iso.split('-').map(Number);
+  return Math.round(Date.UTC(y, m - 1, d) / 86400000);
+}
+
+export function isoFromDay(n: number): string {
+  return new Date(n * 86400000).toISOString().slice(0, 10);
 }

@@ -4,9 +4,11 @@ import { Board } from './board';
 import { Progress } from './progress';
 import { Editor } from './editor';
 import { Avatar } from './avatar';
+import { Gantt } from './gantt';
+import { PLAN } from './plan';
 import { PRODUCTS, Product, Status, Task, daysUntil, shortDate } from './model';
 
-type View = 'tablero' | 'progreso';
+type View = 'tablero' | 'cronograma' | 'progreso';
 type Who = 'all' | 'me' | 'none' | string;
 
 function load(key: string, fallback: string): string {
@@ -24,7 +26,7 @@ function keep(key: string, v: string) {
 
 @Component({
   selector: 'app-root',
-  imports: [Board, Progress, Editor, Avatar],
+  imports: [Board, Progress, Editor, Avatar, Gantt],
   template: `
     @switch (store.session()) {
       @case ('loading') {
@@ -70,6 +72,7 @@ function keep(key: string, v: string) {
       <nav class="bar">
         <div class="tabs" role="tablist">
           <button role="tab" type="button" [class.on]="view() === 'tablero'" [attr.aria-selected]="view() === 'tablero'" (click)="setView('tablero')">Tablero</button>
+          <button role="tab" type="button" [class.on]="view() === 'cronograma'" [attr.aria-selected]="view() === 'cronograma'" (click)="setView('cronograma')">Cronograma</button>
           <button role="tab" type="button" [class.on]="view() === 'progreso'" [attr.aria-selected]="view() === 'progreso'" (click)="setView('progreso')">Progreso</button>
         </div>
         <div class="filters">
@@ -96,10 +99,23 @@ function keep(key: string, v: string) {
       <main>
         @if (!store.loaded()) {
           <p class="empty">Cargando…</p>
-        } @else if (view() === 'tablero') {
-          <app-board [tasks]="filtered()" (open)="openTask($event)" (add)="openNew($event)" />
         } @else {
-          <app-progress [tasks]="filtered()" />
+          @if (!store.tasks().length) {
+            <div class="seed">
+              <div>
+                <p class="seed-title">La pizarra está vacía</p>
+                <p class="muted">Carga el plan del proyecto: {{ planSize }} tareas de los enunciados y el calendario del aula, con fechas y estimaciones que luego puedes editar.</p>
+              </div>
+              <button class="btn primary" type="button" [disabled]="importing()" (click)="importPlan()">{{ importing() ? 'Cargando…' : 'Cargar plan del proyecto' }}</button>
+            </div>
+          }
+          @if (view() === 'tablero') {
+            <app-board [tasks]="filtered()" (open)="openTask($event)" (add)="openNew($event)" />
+          } @else if (view() === 'cronograma') {
+            <app-gantt [tasks]="filtered()" (open)="openTask($event)" />
+          } @else {
+            <app-progress [tasks]="filtered()" />
+          }
         }
       </main>
     </div>
@@ -138,6 +154,9 @@ function keep(key: string, v: string) {
     .seg button.on { color: var(--ink); }
     .who select { border: 0; background: transparent; padding: 0; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; max-width: 170px; }
     .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .seed { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; justify-content: space-between; padding: 24px; border: 1px solid var(--line); border-radius: var(--r-md); margin-bottom: 32px; }
+    .seed p { margin: 0; max-width: 60ch; }
+    .seed-title { font-size: 16px; font-weight: 600; margin-bottom: 4px !important; }
     .empty { color: var(--muted); padding: 64px 0; text-align: center; margin: 0; }
     @media (max-width: 720px) {
       .wrap { padding: 24px 16px 48px; gap: 24px; }
@@ -149,7 +168,11 @@ function keep(key: string, v: string) {
 export class App {
   readonly store = inject(Store);
   readonly products = PRODUCTS;
-  readonly view = signal<View>((location.hash.replace('#', '') as View) === 'progreso' ? 'progreso' : (load('pz.view', 'tablero') as View));
+  readonly planSize = PLAN.length;
+  readonly importing = signal(false);
+  readonly view = signal<View>(
+    (['tablero', 'cronograma', 'progreso'] as View[]).find((v) => location.hash === '#' + v) ?? (load('pz.view', 'tablero') as View),
+  );
   readonly product = signal<Product | 'all'>(load('pz.product', 'all') as Product | 'all');
   readonly who = signal<Who>(load('pz.who', 'all'));
   readonly editing = signal<{ task: Task | null; status: Status } | null>(null);
@@ -173,6 +196,12 @@ export class App {
     const p = up[0];
     return { short: p.short, days: daysUntil(p.deadline!), date: shortDate(p.deadline!) };
   });
+
+  async importPlan() {
+    this.importing.set(true);
+    await this.store.importPlan();
+    this.importing.set(false);
+  }
 
   setView(v: View) {
     this.view.set(v);

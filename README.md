@@ -1,8 +1,13 @@
 # Pizarra · EQUIPO BASKET
 
 Tablero de tareas del equipo para el proyecto FP.451 (UOC). Sustituye a Trello:
-kanban con arrastrar y soltar, responsable, estimación en horas, fecha límite y
-vista de progreso por producto (P1–P4).
+
+- **Tablero:** kanban con arrastrar y soltar, responsable, estimación y fecha límite.
+- **Cronograma:** diagrama de Gantt agrupado por producto, con las entregas P1–P4 y la línea de hoy.
+- **Progreso:** avance por producto, horas pendientes y tareas atrasadas.
+
+La primera vez, con la pizarra vacía, el botón **Cargar plan del proyecto** crea las
+tareas de `src/app/plan.ts` (enunciados, rúbricas y calendario del aula).
 
 - **Frontend:** Angular 21 (componentes standalone + signals) y Angular CDK para el drag & drop.
 - **Datos:** Cloud Firestore, en tiempo real (`onSnapshot`).
@@ -34,6 +39,7 @@ vista de progreso por producto (P1–P4).
 |---|---|
 | Desarrollo local (`http://localhost:4200`) | `npm start` |
 | Publicar cambios de la app y las reglas | `npm run deploy` |
+| Publicar desde Cloud Shell | `cd ~/pizarra && git pull && npx ng build && firebase deploy --project fp451-9b6d0` |
 | Añadir a un compañero (solo reglas) | editar `firestore.rules` → `npm run deploy:rules` |
 
 > Para probar en local con login, `localhost` ya está autorizado por defecto en
@@ -45,6 +51,8 @@ vista de progreso por producto (P1–P4).
 src/app/
   app.ts              Cabecera, pestañas, filtros, pantalla de login
   board.ts            Tablero kanban (4 columnas, arrastrar y soltar)
+  gantt.ts            Cronograma (Gantt) por producto
+  plan.ts             Plan inicial del proyecto (tareas con fechas)
   progress.ts         Resumen y avance por producto
   editor.ts           Panel lateral para crear/editar tareas
   avatar.ts           Foto de Google o iniciales
@@ -58,5 +66,5 @@ firebase.json         Hosting (SPA) y Firestore
 ## Datos en Firestore
 
 - `tasks/{id}`: `title`, `notes`, `product` (`ORG`·`P1`…`P4`), `status` (`todo`·`doing`·`review`·`done`),
-  `assignee` (uid), `estimate` (h), `due` (`AAAA-MM-DD`), `rank`, `createdAt`, `createdBy`, `doneAt`.
+  `assignee` (uid), `estimate` (h), `start` y `due` (`AAAA-MM-DD`), `rank`, `createdAt`, `createdBy`, `doneAt`.
 - `members/{uid}`: `name`, `email`, `photo`, `lastSeen`. Cada persona se registra al entrar por primera vez.

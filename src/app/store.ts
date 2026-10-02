@@ -11,9 +11,11 @@ import {
   onSnapshot,
   setDoc,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.config';
 import { Status, Task, toTask } from './model';
+import { PLAN } from './plan';
 
 export interface Person {
   id: string;
@@ -167,6 +169,25 @@ export class Store {
 
   async remove(task: Task) {
     await this.run(() => deleteDoc(doc(this.db, 'tasks', task.id)));
+  }
+
+  /** Crea de una vez las tareas del plan del proyecto (solo con la pizarra vacía). */
+  async importPlan() {
+    if (this.tasks().length) return;
+    const batch = writeBatch(this.db);
+    const now = Date.now();
+    PLAN.forEach((p, i) => {
+      batch.set(doc(collection(this.db, 'tasks')), {
+        ...p,
+        status: 'todo',
+        assignee: null,
+        rank: i + 1,
+        createdAt: now + i,
+        createdBy: this.me(),
+        doneAt: null,
+      });
+    });
+    await this.run(() => batch.commit());
   }
 
   private nextRank(status: Status, exclude?: string) {
