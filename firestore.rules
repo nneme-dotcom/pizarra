@@ -1,0 +1,36 @@
+rules_version = '2';
+
+// Solo las cuentas de Google de esta lista pueden ver y editar la pizarra.
+// Para añadir a alguien: añade su correo (en minúsculas) y vuelve a desplegar
+// con `npm run deploy:rules`.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isTeam() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in [
+          'nneme@uoc.edu'
+        ];
+    }
+
+    function validTask() {
+      let t = request.resource.data;
+      return t.title is string && t.title.size() > 0 && t.title.size() <= 200
+        && t.status in ['todo', 'doing', 'review', 'done']
+        && t.product in ['ORG', 'P1', 'P2', 'P3', 'P4']
+        && t.estimate is number && t.estimate >= 0;
+    }
+
+    match /tasks/{taskId} {
+      allow read, delete: if isTeam();
+      allow create, update: if isTeam() && validTask();
+    }
+
+    // Cada persona solo puede escribir su propia ficha (nombre y foto de Google).
+    match /members/{uid} {
+      allow read: if isTeam();
+      allow write: if isTeam() && request.auth.uid == uid;
+    }
+  }
+}
