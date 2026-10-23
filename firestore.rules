@@ -1,37 +1,63 @@
 rules_version = '2';
 
-// Solo las cuentas de Google de esta lista pueden ver y editar la pizarra.
-// Para añadir a alguien: añade su correo (en minúsculas) y vuelve a desplegar
-// con `npm run deploy:rules`.
+// Pizarra · seguridad en el servidor (la interfaz solo oculta botones; quien manda es esto).
+// - Propietaria: edita tareas y decide quién puede ver la pizarra.
+// - Invitados (el consultor): solo lectura, con su cuenta de Google (las cuentas @uoc.edu lo son).
+//   La lista de invitados vive en config/access y se gestiona desde la app (botón «Compartir»).
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isTeam() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email.lower() in [
-          'nadirneme@gmail.com',
-          'nneme@uoc.edu'
-        ];
+    function email() {
+      return request.auth.token.email.lower();
+    }
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    // Debe coincidir con src/app/access.ts
+    function isOwner() {
+      return signedIn() && email() in ['nneme@uoc.edu', 'nadirneme@gmail.com'];
+    }
+
+    function isViewer() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/config/access)
+        && email() in get(/databases/$(database)/documents/config/access).data.viewers;
+    }
+
+    function isIsoDate(v) {
+      return v == null || (v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'));
     }
 
     function validTask() {
       let t = request.resource.data;
-      return t.title is string && t.title.size() > 0 && t.title.size() <= 200
-        && t.status in ['todo', 'doing', 'review', 'done']
+      return t.keys().hasAll(['title', 'product', 'status', 'estimate', 'spent', 'start', 'due', 'rank'])
+        && t.title is string && t.title.size() > 0 && t.title.size() <= 200
         && t.product in ['ORG', 'P1', 'P2', 'P3', 'P4']
-        && t.estimate is number && t.estimate >= 0;
+        && t.status in ['todo', 'doing', 'done']
+        && t.estimate is number && t.estimate >= 0 && t.estimate <= 500
+        && t.spent is number && t.spent >= 0 && t.spent <= 500
+        && isIsoDate(t.start) && isIsoDate(t.due)
+        && t.rank is number;
     }
 
-    match /tasks/{taskId} {
-      allow read, delete: if isTeam();
-      allow create, update: if isTeam() && validTask();
+    match /roadmap/{taskId} {
+      allow read: if isOwner() || isViewer();
+      allow create, update: if isOwner() && validTask();
+      allow delete: if isOwner();
     }
 
-    // Cada persona solo puede escribir su propia ficha (nombre y foto de Google).
-    match /members/{uid} {
-      allow read: if isTeam();
-      allow write: if isTeam() && request.auth.uid == uid;
+    match /config/access {
+      allow read: if isOwner() || (signedIn() && resource != null && email() in resource.data.viewers);
+      allow write: if isOwner()
+        && request.resource.data.viewers is list
+        && request.resource.data.viewers.size() <= 20;
+    }
+
+    // Todo lo demás (incluidas las colecciones de la versión anterior) queda cerrado.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

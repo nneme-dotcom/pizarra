@@ -1,0 +1,78 @@
+<section class="kpis" aria-label="Resumen del proyecto">
+  <!-- Avance global -->
+  <div class="card kpi kpi-main">
+    <span class="eyebrow">Avance del proyecto</span>
+    <div class="kpi-value display num">{{ total().pct }}<small>%</small></div>
+    <div class="eagles-progress" role="progressbar" [attr.aria-valuenow]="total().pct" aria-valuemin="0" aria-valuemax="100" aria-label="Avance global">
+      <span [style.width.%]="total().pct"></span>
+    </div>
+    <p class="kpi-foot num">{{ hours(total().estimateDone) }} de {{ hours(total().estimate) }} h estimadas completadas</p>
+  </div>
+
+  <!-- Próxima entrega -->
+  <div class="card kpi">
+    <span class="eyebrow">Próxima entrega</span>
+    @if (next(); as n) {
+      <div class="kpi-value display num">
+        {{ n.days }}<small>{{ n.days === 1 ? 'día' : 'días' }}</small>
+      </div>
+      <p class="kpi-foot"><span class="prod-badge me-1">{{ n.short }}</span> {{ shortDate(n.deadline) }} · {{ n.points }} pts</p>
+    } @else {
+      <div class="kpi-value display">—</div>
+      <p class="kpi-foot">Todas las entregas han pasado</p>
+    }
+  </div>
+
+  <!-- Tareas -->
+  <div class="card kpi">
+    <span class="eyebrow">Tareas</span>
+    <div class="kpi-value display num">{{ total().done }}<small>/ {{ total().total }}</small></div>
+    <p class="kpi-foot num">
+      <span class="status-dot doing me-1"></span>{{ total().doing }} en curso
+      @if (total().late) {
+        · <span class="text-danger"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> {{ total().late }} atrasada{{ total().late === 1 ? '' : 's' }}</span>
+      }
+    </p>
+  </div>
+
+  <!-- Horas -->
+  <div class="card kpi">
+    <span class="eyebrow">Horas reales</span>
+    <div class="kpi-value display num">{{ hours(total().spent) }}<small>h</small></div>
+    <p class="kpi-foot num">de {{ hours(total().estimate) }} h planificadas</p>
+  </div>
+</section>
+
+<!-- Un producto por tarjeta: pulsar filtra la línea temporal -->
+<section class="products" aria-label="Progreso por producto">
+  @for (p of products(); track p.info.id) {
+    <button
+      type="button"
+      class="card prod"
+      [class.on]="selected() === p.info.id"
+      [class]="'card prod ' + p.state"
+      [attr.aria-pressed]="selected() === p.info.id"
+      (click)="pick.emit(selected() === p.info.id ? 'all' : p.info.id)"
+    >
+      <div class="prod-top">
+        <span class="prod-badge" [class.org]="p.info.id === 'ORG'">{{ p.info.short }}</span>
+        <span class="prod-state">{{ stateLabel[p.state] }}</span>
+      </div>
+      <span class="prod-name">{{ p.info.name }}</span>
+      <div class="prod-pct display num">{{ p.s.pct }}%</div>
+      <div class="eagles-progress" aria-hidden="true"><span [style.width.%]="p.s.pct"></span></div>
+      <div class="prod-meta num">
+        <span>{{ p.s.done }}/{{ p.s.total }} tareas</span>
+        <span>{{ hours(p.s.spent) }}/{{ hours(p.s.estimate) }} h</span>
+      </div>
+      <div class="prod-meta num">
+        @if (p.info.deadline) {
+          <span><i class="bi bi-flag" aria-hidden="true"></i> {{ shortDate(p.info.deadline) }}
+            @if (p.days !== null && p.days >= 0 && p.state !== 'done') { · {{ p.days }} d }
+          </span>
+        }
+        @if (p.info.points) { <span>{{ p.info.points }} pts</span> }
+      </div>
+    </button>
+  }
+</section>

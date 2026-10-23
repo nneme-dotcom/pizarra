@@ -1,12 +1,13 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { initializeApp } from 'firebase/app';
-import { GoogleAuthProvider, User, getAuth, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import { FirebaseApp, initializeApp } from 'firebase/app';
+import { Auth, GoogleAuthProvider, User, getAuth, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import {
+  Firestore,
   Unsubscribe,
-  addDoc,
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getFirestore,
   onSnapshot,
   setDoc,
@@ -14,201 +15,230 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.config';
-import { Status, Task, toTask } from './model';
+import { OWNER_EMAILS } from './access';
+import { Status, Task, TaskData, todayIso, toTask } from './model';
 import { PLAN } from './plan';
 
-export interface Person {
-  id: string;
-  name: string;
-  email: string;
-  photo: string;
-}
+export type Session = 'loading' | 'out' | 'denied' | 'in';
+/** owner: edita todo · viewer: el consultor, solo lectura */
+export type Role = 'owner' | 'viewer';
 
-/** loading: comprobando sesión · out: sin sesión · in: dentro · denied: correo no autorizado */
-export type Session = 'loading' | 'out' | 'in' | 'denied';
+const TASKS = 'roadmap';
+const ACCESS = 'config/access';
 
-export type NewTask = Omit<Task, 'id' | 'rank' | 'createdAt' | 'createdBy' | 'doneAt'>;
-
+/**
+ * Servicio de datos: autenticación con Google y Firestore en tiempo real.
+ * El estado se expone como signals, así los componentes se actualizan solos.
+ *
+ * Con «?demo» en la URL funciona sin Firebase, con el plan inicial en memoria
+ * (útil para enseñar la app o hacer capturas sin iniciar sesión).
+ */
 @Injectable({ providedIn: 'root' })
 export class Store {
-  private readonly app = initializeApp(firebaseConfig);
-  private readonly auth = getAuth(this.app);
-  private readonly db = getFirestore(this.app);
-  private subs: Unsubscribe[] = [];
+  readonly demo = typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo');
 
   readonly session = signal<Session>('loading');
-  readonly user = signal<User | null>(null);
+  readonly role = signal<Role>('viewer');
+  readonly user = signal<{ name: string; email: string; photo: string | null } | null>(null);
   readonly tasks = signal<Task[]>([]);
-  readonly members = signal<Person[]>([]);
   readonly loaded = signal(false);
+  readonly viewers = signal<string[]>([]);
   readonly error = signal<string | null>(null);
 
-  readonly me = computed(() => this.user()?.uid ?? null);
-  readonly memberIds = computed(() => this.members().map((m) => m.id));
-  readonly people = computed(() => Object.fromEntries(this.members().map((m) => [m.id, m])) as Record<string, Person>);
+  readonly canEdit = computed(() => this.session() === 'in' && this.role() === 'owner');
+
+  private app?: FirebaseApp;
+  private auth?: Auth;
+  private db?: Firestore;
+  private unsubs: Unsubscribe[] = [];
 
   constructor() {
-    onAuthStateChanged(this.auth, (u) => this.onUser(u));
+    if (this.demo) {
+      this.startDemo();
+      return;
+    }
+    this.app = initializeApp(firebaseConfig);
+    this.auth = getAuth(this.app);
+    this.db = getFirestore(this.app);
+    onAuthStateChanged(this.auth, (u) => void this.onUser(u));
   }
 
-  // ---------- sesión ----------
+  /* ---------- Sesión ---------- */
 
-  async signIn() {
+  async signIn(): Promise<void> {
+    if (!this.auth) return;
     this.error.set(null);
     try {
-      await signInWithPopup(this.auth, new GoogleAuthProvider());
-    } catch (e: any) {
-      if (e?.code !== 'auth/popup-closed-by-user' && e?.code !== 'auth/cancelled-popup-request') {
-        this.error.set('No se pudo iniciar sesión. Inténtalo de nuevo.');
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithPopup(this.auth, provider);
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? '';
+      if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+        this.error.set('No se pudo iniciar sesión. Si el navegador bloquea la ventana emergente, permítela e inténtalo de nuevo.');
       }
     }
   }
 
-  signOut() {
-    return signOut(this.auth);
+  async signOut(): Promise<void> {
+    if (this.demo) return;
+    if (this.auth) await signOut(this.auth);
   }
 
-  private async onUser(u: User | null) {
-    this.subs.forEach((off) => off());
-    this.subs = [];
+  private async onUser(u: User | null): Promise<void> {
+    this.stop();
     this.tasks.set([]);
-    this.members.set([]);
     this.loaded.set(false);
-    this.user.set(u);
-    if (!u) {
+    if (!u || !this.db) {
+      this.user.set(null);
       this.session.set('out');
       return;
     }
-    // Registrarse como miembro. Si las reglas rechazan el correo, no tiene acceso.
+    const email = (u.email ?? '').toLowerCase();
+    this.user.set({ name: u.displayName ?? email, email, photo: u.photoURL });
+    this.session.set('loading');
+
+    const isOwner = OWNER_EMAILS.includes(email);
+    let viewers: string[] = [];
     try {
-      await setDoc(
-        doc(this.db, 'members', u.uid),
-        { name: u.displayName || u.email || 'Sin nombre', email: u.email ?? '', photo: u.photoURL ?? '', lastSeen: Date.now() },
-        { merge: true },
-      );
-    } catch (e: any) {
-      this.session.set(e?.code === 'permission-denied' ? 'denied' : 'out');
-      if (e?.code !== 'permission-denied') this.error.set('No se pudo conectar con la base de datos.');
+      // Las reglas solo dejan leer este documento a la propietaria y a los correos invitados:
+      // si la lectura falla, la cuenta no tiene acceso.
+      const snap = await getDoc(doc(this.db, ACCESS));
+      viewers = cleanEmails(snap.data()?.['viewers']);
+    } catch {
+      if (!isOwner) {
+        this.session.set('denied');
+        return;
+      }
+    }
+    if (!isOwner && !viewers.includes(email)) {
+      this.session.set('denied');
       return;
     }
+    this.role.set(isOwner ? 'owner' : 'viewer');
+    this.viewers.set(viewers);
     this.session.set('in');
-    this.subs.push(
+    this.listen();
+  }
+
+  private listen(): void {
+    const db = this.db!;
+    this.unsubs.push(
       onSnapshot(
-        collection(this.db, 'tasks'),
-        (s) => {
-          this.tasks.set(s.docs.map((d) => toTask(d.id, d.data())));
+        collection(db, TASKS),
+        (snap) => {
+          this.tasks.set(snap.docs.map((d) => toTask(d.id, d.data())));
           this.loaded.set(true);
         },
-        (e) => this.fail(e),
-      ),
-      onSnapshot(
-        collection(this.db, 'members'),
-        (s) =>
-          this.members.set(
-            s.docs
-              .map((d) => {
-                const v = d.data();
-                return {
-                  id: d.id,
-                  name: typeof v['name'] === 'string' ? v['name'] : '',
-                  email: typeof v['email'] === 'string' ? v['email'] : '',
-                  photo: typeof v['photo'] === 'string' ? v['photo'] : '',
-                };
-              })
-              .sort((a, b) => a.name.localeCompare(b.name)),
-          ),
-        (e) => this.fail(e),
+        () => this.error.set('Se ha perdido la conexión con la base de datos. Recarga la página.'),
       ),
     );
-  }
-
-  // ---------- personas ----------
-
-  person(id: string | null): Person | null {
-    return id ? (this.people()[id] ?? null) : null;
-  }
-
-  displayName(id: string | null): string {
-    if (!id) return 'Sin asignar';
-    const name = this.people()[id]?.name || 'Compañero';
-    return id === this.me() ? `${name} (tú)` : name;
-  }
-
-  // ---------- tareas ----------
-
-  async create(data: NewTask) {
-    await this.run(() =>
-      addDoc(collection(this.db, 'tasks'), {
-        ...data,
-        rank: this.nextRank(data.status),
-        createdAt: Date.now(),
-        createdBy: this.me(),
-        doneAt: data.status === 'done' ? Date.now() : null,
-      }),
-    );
-  }
-
-  async save(prev: Task, patch: Partial<NewTask>) {
-    const changes: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(patch)) if ((prev as any)[k] !== v) changes[k] = v;
-    if (patch.status && patch.status !== prev.status) {
-      changes['doneAt'] = patch.status === 'done' ? Date.now() : null;
-      changes['rank'] = this.nextRank(patch.status, prev.id);
+    if (this.role() === 'owner') {
+      this.unsubs.push(onSnapshot(doc(db, ACCESS), (s) => this.viewers.set(cleanEmails(s.data()?.['viewers']))));
     }
-    if (Object.keys(changes).length) await this.run(() => updateDoc(doc(this.db, 'tasks', prev.id), changes));
   }
 
-  async move(task: Task, status: Status, rank: number) {
-    if (task.status === status && task.rank === rank) return;
-    const changes: Record<string, unknown> = { status, rank };
-    if (status !== task.status) changes['doneAt'] = status === 'done' ? Date.now() : null;
-    // Actualización local inmediata para que la tarjeta no "salte" al soltarla.
-    this.tasks.update((ts) => ts.map((t) => (t.id === task.id ? ({ ...t, ...changes } as Task) : t)));
-    await this.run(() => updateDoc(doc(this.db, 'tasks', task.id), changes));
+  private stop(): void {
+    this.unsubs.forEach((u) => u());
+    this.unsubs = [];
   }
 
-  async remove(task: Task) {
-    await this.run(() => deleteDoc(doc(this.db, 'tasks', task.id)));
+  /* ---------- Escritura (solo propietaria; las reglas lo garantizan en el servidor) ---------- */
+
+  async save(id: string | null, data: TaskData): Promise<void> {
+    const clean: TaskData = { ...data, title: data.title.trim(), updatedAt: Date.now() };
+    if (this.demo) {
+      const newId = id ?? crypto.randomUUID();
+      this.tasks.update((ts) => [...ts.filter((t) => t.id !== newId), { id: newId, ...clean }]);
+      return;
+    }
+    await this.run(() => (id ? setDoc(doc(this.db!, TASKS, id), clean) : setDoc(doc(collection(this.db!, TASKS)), clean)));
   }
 
-  /** Crea de una vez las tareas del plan del proyecto (solo con la pizarra vacía). */
-  async importPlan() {
-    if (this.tasks().length) return;
-    const batch = writeBatch(this.db);
-    const now = Date.now();
-    PLAN.forEach((p, i) => {
-      batch.set(doc(collection(this.db, 'tasks')), {
-        ...p,
-        status: 'todo',
-        assignee: null,
-        rank: i + 1,
-        createdAt: now + i,
-        createdBy: this.me(),
-        doneAt: null,
-      });
+  async move(id: string, status: Status, rank: number): Promise<void> {
+    const patch = { status, rank, updatedAt: Date.now() };
+    // Actualización optimista: se ve al instante y Firestore la confirma después
+    this.tasks.update((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    if (this.demo) return;
+    await this.run(() => updateDoc(doc(this.db!, TASKS, id), patch));
+  }
+
+  async remove(id: string): Promise<void> {
+    if (this.demo) {
+      this.tasks.update((ts) => ts.filter((t) => t.id !== id));
+      return;
+    }
+    await this.run(() => deleteDoc(doc(this.db!, TASKS, id)));
+  }
+
+  async seed(): Promise<void> {
+    const rows = planRows();
+    if (this.demo) {
+      this.tasks.set(rows.map((r, i) => ({ id: `demo-${i}`, ...r })));
+      return;
+    }
+    await this.run(async () => {
+      const batch = writeBatch(this.db!);
+      rows.forEach((r) => batch.set(doc(collection(this.db!, TASKS)), r));
+      await batch.commit();
     });
-    await this.run(() => batch.commit());
   }
 
-  private nextRank(status: Status, exclude?: string) {
-    const col = this.tasks().filter((t) => t.status === status && t.id !== exclude);
-    return col.length ? Math.max(...col.map((t) => t.rank)) + 1 : 1;
+  async setViewers(list: string[]): Promise<void> {
+    const viewers = cleanEmails(list);
+    if (this.demo) {
+      this.viewers.set(viewers);
+      return;
+    }
+    await this.run(() => setDoc(doc(this.db!, ACCESS), { viewers }, { merge: true }));
   }
 
-  private async run(fn: () => Promise<unknown>) {
+  private async run(fn: () => Promise<unknown>): Promise<void> {
+    this.error.set(null);
     try {
-      this.error.set(null);
       await fn();
     } catch (e) {
-      this.fail(e);
+      console.error(e);
+      this.error.set('No se pudo guardar el cambio. Comprueba la conexión o los permisos.');
+      throw e;
     }
   }
 
-  private fail(e: any) {
-    this.error.set(
-      e?.code === 'permission-denied'
-        ? 'No tienes permiso para este cambio.'
-        : 'No se pudo guardar el último cambio. Comprueba tu conexión.',
-    );
+  private startDemo(): void {
+    this.user.set({ name: 'Modo demo', email: 'demo', photo: null });
+    this.role.set(new URLSearchParams(location.search).get('demo') === 'tutor' ? 'viewer' : 'owner');
+    this.tasks.set(planRows().map((r, i) => ({ id: `demo-${i}`, ...r })));
+    this.viewers.set(['consultor@uoc.edu']);
+    this.loaded.set(true);
+    this.session.set('in');
   }
+}
+
+function planRows(): TaskData[] {
+  const now = Date.now();
+  const today = todayIso();
+  return PLAN.map((p, i) => ({
+    title: p.title,
+    notes: p.notes,
+    product: p.product,
+    status: p.status ?? 'todo',
+    estimate: p.estimate,
+    spent: 0,
+    start: p.start,
+    due: p.due,
+    milestone: p.milestone ?? false,
+    link: '',
+    rubric: p.rubric ?? '',
+    rank: (i + 1) * 1000,
+    updatedAt: now,
+  })).map((r) => (r.status === 'done' && !r.due ? { ...r, due: today } : r));
+}
+
+function cleanEmails(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out = v
+    .filter((e): e is string => typeof e === 'string')
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+  return [...new Set(out)].slice(0, 20);
 }

@@ -1,0 +1,171 @@
+@switch (store.session()) {
+  @case ('loading') {
+    <div class="gate" aria-busy="true">
+      <img class="gate-eagle pulse" src="assets/club/eagle-white.webp" alt="" width="120" height="120" />
+      <p class="text-body-secondary">Cargando…</p>
+    </div>
+  }
+
+  @case ('out') {
+    <main class="gate">
+      <div class="card gate-card">
+        <img class="gate-eagle" src="assets/club/eagle-white.webp" alt="" width="120" height="120" />
+        <img class="gate-logo" src="assets/club/text-logo-white.webp" alt="VBE Eagles Echternach" width="350" height="63" />
+        <h1 class="gate-title display slanted">Pizarra</h1>
+        <p class="text-body-secondary">Planificación y progreso del proyecto FP.451 · UOC</p>
+        <button type="button" class="btn btn-eagles btn-lg w-100" (click)="store.signIn()">
+          <i class="bi bi-google me-2" aria-hidden="true"></i>Entrar con Google
+        </button>
+        <p class="small text-body-secondary mt-3 mb-0">Puedes entrar con tu cuenta de la UOC.</p>
+        @if (store.error(); as e) {
+          <p class="text-danger small mt-3 mb-0" role="alert">{{ e }}</p>
+        }
+      </div>
+    </main>
+  }
+
+  @case ('denied') {
+    <main class="gate">
+      <div class="card gate-card">
+        <img class="gate-eagle" src="assets/club/eagle-white.webp" alt="" width="120" height="120" />
+        <h1 class="gate-title display">Sin acceso</h1>
+        <p class="text-body-secondary">
+          La cuenta <strong>{{ store.user()?.email }}</strong> no tiene permiso para ver esta pizarra.
+          Pide a la propietaria que te invite desde «Compartir».
+        </p>
+        <button type="button" class="btn btn-outline-eagles w-100" (click)="store.signOut()">Usar otra cuenta</button>
+      </div>
+    </main>
+  }
+
+  @case ('in') {
+    <header class="eagles-header">
+      <div class="container-xl d-flex flex-wrap align-items-center gap-3 py-3">
+        <div class="brand me-auto">
+          <img class="text-logo" src="assets/club/text-logo-white.webp" alt="VBE Eagles Echternach" width="350" height="63" />
+          <span class="brand-sep" aria-hidden="true"></span>
+          <div>
+            <h1 class="brand-title display slanted">Pizarra</h1>
+            <p class="brand-sub">Proyecto FP.451 · UOC
+              @if (nextDeadline(); as n) {
+                <span class="d-none d-sm-inline"> · {{ n.short }} en {{ n.days }} {{ n.days === 1 ? 'día' : 'días' }}</span>
+              }
+            </p>
+          </div>
+        </div>
+
+        <div class="actions">
+          @if (store.demo) {
+            <span class="chip demo">Modo demo</span>
+          }
+          @if (store.canEdit()) {
+            <button type="button" class="btn btn-ghost btn-touch" (click)="sharing.set(true)">
+              <i class="bi bi-share" aria-hidden="true"></i><span class="d-none d-md-inline ms-2">Compartir</span>
+            </button>
+            <button type="button" class="btn btn-eagles btn-touch" (click)="newTask()">
+              <i class="bi bi-plus-lg" aria-hidden="true"></i><span class="d-none d-sm-inline ms-2">Nueva tarea</span>
+            </button>
+          } @else {
+            <span class="chip"><i class="bi bi-eye me-1" aria-hidden="true"></i>Solo lectura</span>
+          }
+          <button
+            type="button"
+            class="avatar-btn"
+            (click)="store.signOut()"
+            [title]="'Cerrar sesión (' + store.user()?.email + ')'"
+            [attr.aria-label]="'Cerrar sesión de ' + store.user()?.email"
+          >
+            @if (store.user()?.photo; as photo) {
+              <img [src]="photo" alt="" width="36" height="36" referrerpolicy="no-referrer" />
+            } @else {
+              <i class="bi bi-person-fill" aria-hidden="true"></i>
+            }
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container-xl py-4">
+      @if (store.error(); as e) {
+        <div class="alert-eagles mb-3" role="alert"><i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>{{ e }}</div>
+      }
+
+      <!-- Vista + filtro de producto -->
+      <nav class="toolbar mb-4" aria-label="Vistas y filtros">
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" class="tab" [class.on]="view() === 'roadmap'" [attr.aria-selected]="view() === 'roadmap'" (click)="setView('roadmap')">
+            <i class="bi bi-bar-chart-steps" aria-hidden="true"></i> Roadmap
+          </button>
+          <button type="button" role="tab" class="tab" [class.on]="view() === 'board'" [attr.aria-selected]="view() === 'board'" (click)="setView('board')">
+            <i class="bi bi-kanban" aria-hidden="true"></i> Tablero
+          </button>
+        </div>
+        <div class="filters" role="group" aria-label="Filtrar por producto">
+          <button type="button" class="filter" [class.on]="filter() === 'all'" [attr.aria-pressed]="filter() === 'all'" (click)="setFilter('all')">Todo</button>
+          @for (p of products; track p.id) {
+            <button type="button" class="filter" [class.on]="filter() === p.id" [attr.aria-pressed]="filter() === p.id" (click)="setFilter(p.id)">{{ p.short }}</button>
+          }
+        </div>
+      </nav>
+
+      @if (!store.loaded()) {
+        <p class="text-body-secondary">Cargando tareas…</p>
+      } @else if (store.tasks().length === 0) {
+        <div class="card empty">
+          <div class="card-body text-center p-5">
+            <img class="empty-eagle mb-3" src="assets/club/eagle-white.webp" alt="" width="120" height="120" />
+            <h2 class="section-title justify-content-center mb-2">La pizarra está vacía</h2>
+            @if (store.canEdit()) {
+              <p class="text-body-secondary">Carga el plan del proyecto (fases, P1–P4 con fechas, estimaciones y criterios de rúbrica) y ajústalo desde aquí.</p>
+              <button type="button" class="btn btn-eagles" (click)="seed()" [disabled]="seeding()">
+                {{ seeding() ? 'Cargando…' : 'Cargar plan del proyecto' }}
+              </button>
+            } @else {
+              <p class="text-body-secondary mb-0">Todavía no hay tareas publicadas.</p>
+            }
+          </div>
+        </div>
+      } @else {
+        @switch (view()) {
+          @case ('roadmap') {
+            <div class="d-grid gap-4">
+              <app-summary [tasks]="store.tasks()" [selected]="filter()" (pick)="setFilter($event)" />
+
+              <section aria-labelledby="tl-title" class="d-grid gap-3">
+                <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2">
+                  <h2 id="tl-title" class="section-title">Project planning timeline</h2>
+                  <span class="small text-body-secondary">Pulsa una barra para ver el detalle</span>
+                </div>
+                <app-timeline [tasks]="store.tasks()" [filter]="filter()" (open)="openTask($event)" />
+              </section>
+
+              <div class="row g-4">
+                <div class="col-lg-7">
+                  <app-pending [tasks]="store.tasks()" [filter]="filter()" (open)="openTask($event)" />
+                </div>
+                <div class="col-lg-5">
+                  <app-milestones [tasks]="store.tasks()" [filter]="filter()" (open)="openTask($event)" />
+                </div>
+              </div>
+            </div>
+          }
+          @case ('board') {
+            <app-board [tasks]="store.tasks()" [filter]="filter()" (open)="openTask($event)" (create)="newTask($event)" />
+          }
+        }
+      }
+    </main>
+
+    <footer class="text-center small text-body-secondary py-4">
+      Pizarra · Proyecto académico FP.451 (UOC) · Angular, Bootstrap y Firebase ·
+      Identidad visual: <a href="https://volleyball-echternach.lu/" target="_blank" rel="noopener">volleyball-echternach.lu</a>
+    </footer>
+
+    @if (editing(); as req) {
+      <app-task-editor [request]="req" (closed)="editing.set(null)" />
+    }
+    @if (sharing()) {
+      <app-share-dialog (closed)="sharing.set(false)" />
+    }
+  }
+}
