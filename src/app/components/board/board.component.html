@@ -1,0 +1,58 @@
+<div class="board" cdkDropListGroup>
+  @for (s of statuses; track s.id) {
+    <section class="card column" [class]="'card column ' + s.id" [attr.aria-label]="s.label">
+      <header class="col-head">
+        <i class="bi" [class]="'bi ' + s.icon" aria-hidden="true"></i>
+        <h2 class="col-title display">{{ s.label }}</h2>
+        <span class="col-count num">{{ columns()[s.id].length }}</span>
+        <span class="col-hours num ms-auto">{{ hours(columns()[s.id]) }} h</span>
+        @if (store.canEdit()) {
+          <button type="button" class="btn btn-ghost btn-sm btn-touch" (click)="create.emit(s.id)" [attr.aria-label]="'Nueva tarea en ' + s.label">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+          </button>
+        }
+      </header>
+
+      <div
+        class="col-list"
+        cdkDropList
+        [cdkDropListData]="s.id"
+        [cdkDropListDisabled]="!store.canEdit()"
+        (cdkDropListDropped)="drop($event)"
+      >
+        @for (t of columns()[s.id]; track t.id) {
+          <button
+            type="button"
+            class="task"
+            cdkDrag
+            [cdkDragData]="t"
+            [cdkDragDisabled]="!store.canEdit()"
+            [class.late]="isLate(t)"
+            (click)="open.emit(t)"
+          >
+            <span class="task-top">
+              <span class="prod-badge" [class.org]="t.product === 'ORG'">{{ products[t.product].short }}</span>
+              @if (t.milestone) {
+                <span class="tag"><i class="bi bi-diamond-fill" aria-hidden="true"></i> Hito</span>
+              }
+              <span class="due num ms-auto" [class.text-danger]="isLate(t)">
+                @if (isLate(t)) { <i class="bi bi-exclamation-triangle-fill" aria-label="Atrasada"></i> }
+                <i class="bi bi-calendar3" aria-hidden="true"></i> {{ shortDate(t.due) }}
+              </span>
+            </span>
+            <span class="task-title">{{ t.title }}</span>
+            @if (t.rubric) {
+              <span class="task-rubric"><i class="bi bi-award" aria-hidden="true"></i> {{ t.rubric }}</span>
+            }
+            <span class="task-foot num">
+              <span title="Horas reales / estimadas"><i class="bi bi-stopwatch" aria-hidden="true"></i> {{ t.spent }}/{{ t.estimate }} h</span>
+              @if (t.link) { <i class="bi bi-link-45deg" aria-label="Tiene enlace"></i> }
+            </span>
+          </button>
+        } @empty {
+          <p class="col-empty">Sin tareas</p>
+        }
+      </div>
+    </section>
+  }
+</div>

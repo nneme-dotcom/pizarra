@@ -1,70 +1,79 @@
-# Pizarra · EQUIPO BASKET
+# Pizarra · VBE Eagles Echternach
 
-Tablero de tareas del equipo para el proyecto FP.451 (UOC). Sustituye a Trello:
+Herramienta de planificación del proyecto **FP.451 (UOC)**. Sustituye a Trello y la comparto con el consultor
+para que vea el progreso y las tareas pendientes en tiempo real.
 
-- **Tablero:** kanban con arrastrar y soltar, responsable, estimación y fecha límite.
-- **Cronograma:** diagrama de Gantt agrupado por producto, con las entregas P1–P4 y la línea de hoy.
-- **Progreso:** avance por producto, horas pendientes y tareas atrasadas.
+- **Roadmap:** cifras clave (avance ponderado por horas, próxima entrega, tareas, horas reales),
+  progreso por producto, *project planning timeline* (diagrama de Gantt con entregas, hitos y línea de hoy),
+  lista de pendientes ordenada por fecha y línea de hitos.
+- **Tablero:** kanban de tres estados (Por hacer · En curso · Hecho) con arrastrar y soltar.
+- **Detalle de tarea:** producto, estado, fechas, horas estimadas y reales, criterio de rúbrica, enlace
+  al commit/tag/PR que lo demuestra y notas.
+- **Acceso:** login con Google. La propietaria edita; el consultor entra con su cuenta de la UOC y solo lee.
 
-La primera vez, con la pizarra vacía, el botón **Cargar plan del proyecto** crea las
-tareas de `src/app/plan.ts` (enunciados, rúbricas y calendario del aula).
+Misma estética y stack que el Producto 1: **Angular 22** (standalone, signals, zoneless), **Bootstrap 5**,
+Bebas Neue + Inter y la identidad visual del club. Datos en **Cloud Firestore** y publicación en **Firebase Hosting**.
 
-- **Frontend:** Angular 21 (componentes standalone + signals) y Angular CDK para el drag & drop.
-- **Datos:** Cloud Firestore, en tiempo real (`onSnapshot`).
-- **Acceso:** Firebase Authentication con Google. Solo entran los correos listados en `firestore.rules`.
-- **Publicación:** Firebase Hosting.
+## Puesta en marcha
 
-## Puesta en marcha (una sola vez)
+Usa el proyecto de Firebase `fp451-9b6d0` (ya configurado en `.firebaserc` y `src/app/firebase.config.ts`).
+Requiere Node `22.22.3+` o `24.15+`.
 
-1. **Crear el proyecto** en <https://console.firebase.google.com> → *Añadir proyecto*.
-2. **Authentication** → *Comenzar* → *Método de acceso* → activar **Google**.
-3. **Firestore Database** → *Crear base de datos* → modo **producción**, región `eur3 (europe-west)`.
-4. **Configuración del proyecto** (rueda dentada) → *Tus apps* → icono **Web `</>`** → registrar la app
-   (sin marcar Hosting) y copiar el objeto `firebaseConfig` en `src/app/firebase.config.ts`.
-5. Poner el **ID del proyecto** en `.firebaserc`.
-6. Poner los **correos del equipo** (cuentas de Google, en minúsculas) en `firestore.rules`.
-7. Instalar y desplegar:
+```bash
+npm install
+npx -y firebase-tools login      # solo la primera vez
+npm run deploy                   # compila y publica la app y las reglas
+```
 
-   ```bash
-   npm install
-   npx -y firebase-tools login
-   npm run deploy
-   ```
-
-   La URL pública aparece al final del despliegue (`https://<id-proyecto>.web.app`).
-
-## Uso diario
+1. Abre `https://fp451-9b6d0.web.app` y entra con tu cuenta.
+2. Con la pizarra vacía, pulsa **Cargar plan del proyecto** (crea las tareas de `src/app/plan.ts`).
+3. **Compartir** → añade el correo del consultor. Ya puede entrar con su cuenta de Google (UOC) en modo lectura.
 
 | Acción | Comando |
 |---|---|
 | Desarrollo local (`http://localhost:4200`) | `npm start` |
-| Publicar cambios de la app y las reglas | `npm run deploy` |
-| Publicar desde Cloud Shell | `cd ~/pizarra && git pull && npx ng build && firebase deploy --project fp451-9b6d0` |
-| Añadir a un compañero (solo reglas) | editar `firestore.rules` → `npm run deploy:rules` |
+| Vista previa sin login (datos de ejemplo) | `http://localhost:4200/?demo` · como consultor: `?demo=tutor` |
+| Publicar app + reglas | `npm run deploy` |
+| Publicar solo reglas | `npm run deploy:rules` |
 
-> Para probar en local con login, `localhost` ya está autorizado por defecto en
-> *Authentication → Configuración → Dominios autorizados*.
+## Seguridad
+
+La interfaz oculta los botones de edición al consultor, pero quien lo garantiza es `firestore.rules`:
+
+- `roadmap/*`: leen la propietaria y los correos de `config/access.viewers`; solo la propietaria escribe,
+  y cada tarea se valida (estado, producto, horas y fechas).
+- `config/access`: solo la propietaria lo modifica (desde el botón *Compartir*).
+- Todo lo demás, incluidas las colecciones de la versión anterior (`tasks`, `members`), queda cerrado.
+
+Los correos con permiso de edición están en `src/app/access.ts` y en `isOwner()` de las reglas (deben coincidir).
 
 ## Estructura
 
 ```
 src/app/
-  app.ts              Cabecera, pestañas, filtros, pantalla de login
-  board.ts            Tablero kanban (4 columnas, arrastrar y soltar)
-  gantt.ts            Cronograma (Gantt) por producto
-  plan.ts             Plan inicial del proyecto (tareas con fechas)
-  progress.ts         Resumen y avance por producto
-  editor.ts           Panel lateral para crear/editar tareas
-  avatar.ts           Foto de Google o iniciales
-  store.ts            Servicio de datos: Auth + Firestore
-  model.ts            Tipos, productos con fechas de entrega y utilidades
-  firebase.config.ts  Configuración web de Firebase
-firestore.rules       Seguridad: lista de correos y validación de tareas
-firebase.json         Hosting (SPA) y Firestore
+  app.ts / app.html            Cabecera, login, vistas y filtro por producto
+  store.ts                     Auth + Firestore en tiempo real (signals) y modo demo
+  model.ts                     Tipos, productos con fechas y puntos, cálculo de progreso
+  plan.ts                      Plan inicial (fases, P1–P4, estimaciones y criterios de rúbrica)
+  access.ts                    Correos con permiso de edición
+  components/
+    summary/                   Cifras clave y tarjetas por producto
+    timeline/                  Project planning timeline (Gantt)
+    pending/                   Tareas abiertas por fecha límite
+    milestones/                Hitos y entregas
+    board/                     Kanban de 3 columnas (Angular CDK drag & drop)
+    task-editor/               Detalle y edición de una tarea
+    share-dialog/              Invitar al consultor (solo lectura)
+firestore.rules                Reglas de seguridad
+firebase.json                  Hosting (SPA, caché) y Firestore
 ```
 
-## Datos en Firestore
+## Datos (`roadmap/{id}`)
 
-- `tasks/{id}`: `title`, `notes`, `product` (`ORG`·`P1`…`P4`), `status` (`todo`·`doing`·`review`·`done`),
-  `assignee` (uid), `estimate` (h), `start` y `due` (`AAAA-MM-DD`), `rank`, `createdAt`, `createdBy`, `doneAt`.
-- `members/{uid}`: `name`, `email`, `photo`, `lastSeen`. Cada persona se registra al entrar por primera vez.
+`title`, `notes`, `product` (`ORG`·`P1`…`P4`), `status` (`todo`·`doing`·`done`), `estimate` y `spent` (h),
+`start` y `due` (`AAAA-MM-DD`), `milestone`, `link`, `rubric`, `rank`, `updatedAt`.
+
+## Evolución prevista
+
+- **P3:** vista móvil en React Native (roadmap y pendientes).
+- **P4:** aviso push al consultor cuando un hito pase a «Hecho» (Cloud Functions + FCM).

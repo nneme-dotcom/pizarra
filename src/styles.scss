@@ -1,0 +1,334 @@
+/* ==========================================================
+   Pizarra · Sistema visual
+   Mismo sistema que el Producto 1 (VBE Eagles Echternach):
+   fondo negro, verde lima + verde neón, Bebas Neue en titulares e Inter en texto.
+   ========================================================== */
+
+/* Bebas Neue servida desde public/assets/fonts (licencia SIL OFL 1.1) */
+@font-face {
+  font-family: 'Bebas Neue';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/assets/fonts/bebas-neue-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Bebas Neue';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/assets/fonts/bebas-neue-latin-ext-400-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  /* Superficies (de más oscura a más clara) */
+  --eagles-bg: #000000;
+  --eagles-surface: #0f1010;
+  --eagles-surface-alt: #1b1d1d;
+  --eagles-surface-hover: #242727;
+  --eagles-line: #2c3030;
+
+  /* Colores de marca */
+  --eagles-lime: #cddc39;
+  --eagles-lime-light: #d4ff84;
+  --eagles-neon: #6af778;
+  --eagles-gradient: linear-gradient(40deg, var(--eagles-lime), var(--eagles-lime-light));
+
+  /* Único color fuera de la marca: avisos de retraso */
+  --eagles-danger: #ff5468;
+
+  /* Texto */
+  --eagles-text: #ffffff;
+  --eagles-text-soft: rgba(255, 255, 255, 0.7);
+  --eagles-text-muted: rgba(255, 255, 255, 0.5);
+  --eagles-on-lime: #000000;
+
+  --eagles-radius: 0.75rem;
+  --eagles-font-display: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  --eagles-slant: -8deg;
+  --eagles-touch: 44px;
+}
+
+/* Variables de Bootstrap reasignadas a la marca (se aplican sobre su tema oscuro) */
+[data-bs-theme='dark'] {
+  --bs-body-font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bs-body-bg: var(--eagles-bg);
+  --bs-body-color: var(--eagles-text);
+  --bs-secondary-color: var(--eagles-text-muted);
+  --bs-tertiary-bg: var(--eagles-surface-alt);
+  --bs-border-color: var(--eagles-line);
+  --bs-primary: var(--eagles-lime);
+  --bs-primary-rgb: 205, 220, 57;
+  --bs-link-color: var(--eagles-lime);
+  --bs-link-color-rgb: 205, 220, 57;
+  --bs-link-hover-color: var(--eagles-lime-light);
+  --bs-border-radius: var(--eagles-radius);
+  --bs-danger: var(--eagles-danger);
+  --bs-danger-rgb: 255, 84, 104;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 85% -10%, rgba(106, 247, 120, 0.12), transparent 55%),
+    radial-gradient(ellipse at 0% 100%, rgba(205, 220, 57, 0.06), transparent 50%),
+    var(--eagles-bg);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+.card {
+  --bs-card-bg: var(--eagles-surface);
+  --bs-card-color: var(--eagles-text);
+  --bs-card-cap-bg: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--eagles-radius);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  font-family: var(--eagles-font-display);
+  font-size: 1.75rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--eagles-lime);
+  margin: 0;
+
+  &::before {
+    content: '';
+    flex-shrink: 0;
+    width: 0.32em;
+    height: 0.85em;
+    margin-right: 0.45em;
+    background: var(--eagles-gradient);
+    transform: skewX(var(--eagles-slant));
+  }
+}
+
+.display {
+  font-family: var(--eagles-font-display);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+.slanted {
+  display: inline-block;
+  font-style: normal;
+  transform: skewX(var(--eagles-slant));
+}
+
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--eagles-text-muted);
+}
+
+.num { font-variant-numeric: tabular-nums; }
+
+/* Las rejillas de una columna no deben crecer con el contenido ancho (la línea temporal
+   tiene su propio scroll horizontal): minmax(0, 1fr) fija la columna al ancho disponible */
+.d-grid { grid-template-columns: minmax(0, 1fr); }
+
+.form-control,
+.form-select,
+.input-group-text {
+  min-height: var(--eagles-touch);
+  background-color: var(--eagles-surface-alt);
+  border-color: transparent;
+  color: var(--eagles-text);
+}
+
+.form-control::placeholder { color: var(--eagles-text-muted); }
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--eagles-surface-alt);
+  border-color: var(--eagles-lime);
+  box-shadow: 0 0 0 0.2rem rgba(205, 220, 57, 0.25);
+  color: var(--eagles-text);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  background-color: var(--eagles-surface);
+  color: var(--eagles-text-soft);
+  opacity: 1;
+}
+
+.form-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--eagles-text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.form-check-input:checked {
+  background-color: var(--eagles-lime);
+  border-color: var(--eagles-lime);
+}
+
+/* Botones de marca */
+.btn-eagles {
+  --bs-btn-bg: var(--eagles-lime);
+  --bs-btn-border-color: var(--eagles-lime);
+  --bs-btn-color: var(--eagles-on-lime);
+  --bs-btn-hover-bg: var(--eagles-lime-light);
+  --bs-btn-hover-border-color: var(--eagles-lime-light);
+  --bs-btn-hover-color: var(--eagles-on-lime);
+  --bs-btn-active-bg: var(--eagles-neon);
+  --bs-btn-active-border-color: var(--eagles-neon);
+  --bs-btn-active-color: var(--eagles-on-lime);
+  --bs-btn-disabled-bg: var(--eagles-lime);
+  --bs-btn-disabled-border-color: var(--eagles-lime);
+  --bs-btn-disabled-color: var(--eagles-on-lime);
+  --bs-btn-focus-shadow-rgb: 205, 220, 57;
+  font-weight: 600;
+}
+
+.btn-outline-eagles {
+  --bs-btn-color: var(--eagles-lime);
+  --bs-btn-border-color: var(--eagles-lime);
+  --bs-btn-hover-bg: var(--eagles-lime);
+  --bs-btn-hover-border-color: var(--eagles-lime);
+  --bs-btn-hover-color: var(--eagles-on-lime);
+  --bs-btn-active-bg: var(--eagles-lime);
+  --bs-btn-active-color: var(--eagles-on-lime);
+  --bs-btn-focus-shadow-rgb: 205, 220, 57;
+  font-weight: 600;
+}
+
+.btn-ghost {
+  --bs-btn-color: var(--eagles-text-soft);
+  --bs-btn-hover-color: var(--eagles-text);
+  --bs-btn-hover-bg: var(--eagles-surface-hover);
+  --bs-btn-active-bg: var(--eagles-surface-hover);
+  --bs-btn-active-color: var(--eagles-text);
+  --bs-btn-focus-shadow-rgb: 205, 220, 57;
+}
+
+.btn-touch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--eagles-touch);
+  min-height: var(--eagles-touch);
+}
+
+/* Barra de progreso de marca */
+.eagles-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--eagles-surface-hover);
+  overflow: hidden;
+
+  > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--eagles-gradient);
+    transition: width 0.4s ease-out;
+  }
+}
+
+/* Etiquetas de producto (P1, P2…) */
+.prod-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--eagles-font-display);
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  padding: 0.2em 0.45em 0.15em;
+  border-radius: 0.3rem;
+  background: var(--eagles-lime);
+  color: var(--eagles-on-lime);
+}
+.prod-badge.org {
+  background: transparent;
+  color: var(--eagles-lime);
+  box-shadow: inset 0 0 0 1px var(--eagles-lime);
+}
+
+/* Marca de estado: icono + texto, nunca solo color */
+.status-dot {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  &.todo { box-shadow: inset 0 0 0 2px var(--eagles-text-muted); }
+  &.doing { background: var(--eagles-neon); box-shadow: 0 0 8px rgba(106, 247, 120, 0.6); }
+  &.done { background: var(--eagles-lime); }
+}
+
+.text-danger { color: var(--eagles-danger) !important; }
+.text-lime { color: var(--eagles-lime) !important; }
+.text-neon { color: var(--eagles-neon) !important; }
+
+/* Modal propio (sin JS de Bootstrap) */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  animation: fade-in 0.15s ease-out;
+}
+
+.sheet {
+  width: min(640px, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  border: 1px solid rgba(205, 220, 57, 0.25);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(205, 220, 57, 0.08);
+  animation: rise-in 0.2s ease-out;
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* CDK drag & drop (tablero) */
+.cdk-drag-preview {
+  border-radius: var(--eagles-radius);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(205, 220, 57, 0.25);
+}
+.cdk-drag-placeholder { opacity: 0.25; }
+.cdk-drag-animating { transition: transform 200ms cubic-bezier(0, 0, 0.2, 1); }
+.cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+:focus-visible { outline: 2px solid var(--eagles-lime); outline-offset: 2px; }
+
+::selection {
+  background: var(--eagles-lime);
+  color: var(--eagles-on-lime);
+}
+
+.visually-hidden-focusable:not(:focus) { position: absolute !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

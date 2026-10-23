@@ -1,0 +1,120 @@
+<div class="card tl-card">
+  <div #scroller class="tl-scroll" tabindex="0" aria-label="Línea temporal del proyecto (desplazable en horizontal)">
+    <div class="tl" role="table" aria-label="Planificación por producto">
+      <!-- Capa de fondo: semanas, entregas y hoy. Va detrás de las filas y cubre toda la altura -->
+      <div class="tl-overlay" aria-hidden="true">
+        @for (w of weeks(); track w.left) {
+          <span class="tl-week-line" [style.left.%]="w.left"></span>
+        }
+        @for (d of deadlines(); track d.id) {
+          <span class="tl-deadline-line" [style.left.%]="d.left"></span>
+        }
+        @if (today() !== null) {
+          <span class="tl-today-line" [style.left.%]="today()"></span>
+        }
+      </div>
+
+      <!-- Cabecera: meses, semanas y marcas -->
+      <div class="tl-row tl-head" role="row">
+        <div class="tl-label head-label" role="columnheader">
+          <span class="eyebrow">Tarea</span>
+        </div>
+        <div class="tl-track" role="columnheader">
+          @for (m of months(); track m.left) {
+            <span class="tl-month" [style.left.%]="m.left" [style.width.%]="m.width">{{ m.label }}</span>
+          }
+          @for (w of weeks(); track w.left) {
+            <span class="tl-week num" [style.left.%]="w.left">{{ w.label }}</span>
+          }
+          @for (d of deadlines(); track d.id) {
+            <span class="tl-flag" [style.left.%]="d.left" [title]="'Entrega ' + d.id + ' · ' + d.label">{{ d.id }}</span>
+          }
+          @if (today() !== null) {
+            <span class="tl-today-chip" [style.left.%]="today()">Hoy</span>
+          }
+        </div>
+      </div>
+
+      @for (g of groups(); track g.info.id) {
+        <!-- Fila resumen del producto -->
+        <div class="tl-row tl-group" role="row">
+          <div class="tl-label" role="rowheader">
+            <button
+              type="button"
+              class="group-toggle"
+              (click)="toggle(g.info.id)"
+              [attr.aria-expanded]="!collapsed().has(g.info.id)"
+            >
+              <i class="bi" [class.bi-chevron-down]="!collapsed().has(g.info.id)" [class.bi-chevron-right]="collapsed().has(g.info.id)" aria-hidden="true"></i>
+              <span class="prod-badge" [class.org]="g.info.id === 'ORG'">{{ g.info.short }}</span>
+              <span class="group-name">{{ g.info.name }}</span>
+              <span class="group-pct num">{{ g.pct }}%</span>
+            </button>
+          </div>
+          <div class="tl-track" role="cell">
+            @if (g.span; as s) {
+              <span class="tl-span" [style.left.%]="s.left" [style.width.%]="s.width">
+                <span class="tl-span-fill" [style.width.%]="g.pct"></span>
+              </span>
+            }
+            @if (g.deadline !== null) {
+              <span class="tl-deliver" [style.left.%]="g.deadline" [title]="'Entrega ' + g.info.short + ' · ' + shortDate(g.info.deadline)">
+                <span class="diamond big"></span>
+                <span class="tl-deliver-label">{{ shortDate(g.info.deadline) }}@if (g.info.points) { · {{ g.info.points }} pts }</span>
+              </span>
+            }
+          </div>
+        </div>
+
+        @if (!collapsed().has(g.info.id)) {
+          @for (t of g.tasks; track t.id; let i = $index) {
+            <div class="tl-row tl-task" role="row" [class.late]="isLate(t)" [style.--i]="i">
+              <div class="tl-label" role="rowheader">
+                <button type="button" class="task-label" (click)="open.emit(t)" [title]="t.title">
+                  <span class="status-dot" [class]="t.status" [attr.aria-label]="statusLabel[t.status]" role="img"></span>
+                  <span class="task-title" [class.done]="t.status === 'done'">{{ t.title }}</span>
+                  @if (isLate(t)) {
+                    <i class="bi bi-exclamation-triangle-fill text-danger" aria-label="Atrasada" role="img"></i>
+                  }
+                </button>
+              </div>
+              <div class="tl-track" role="cell">
+                @if (bar(t); as b) {
+                  <button
+                    type="button"
+                    class="tl-bar"
+                    [class]="'tl-bar ' + t.status"
+                    [class.late]="isLate(t)"
+                    [style.left.%]="b.left"
+                    [style.width.%]="b.width"
+                    [title]="barTitle(t)"
+                    [attr.aria-label]="barTitle(t)"
+                    (click)="open.emit(t)"
+                  >
+                    <span class="tl-bar-text num">{{ t.estimate }}h</span>
+                  </button>
+                }
+                @if (milestoneLeft(t); as m) {
+                  <span class="tl-milestone" [class.done]="t.status === 'done'" [style.left.%]="m" aria-hidden="true">
+                    <span class="diamond"></span>
+                  </span>
+                }
+              </div>
+            </div>
+          }
+        }
+      }
+    </div>
+  </div>
+
+  <!-- Leyenda: cada estado lleva forma además de color -->
+  <ul class="tl-legend list-unstyled mb-0">
+    <li><span class="lg-bar todo"></span>Por hacer</li>
+    <li><span class="lg-bar doing"></span>En curso</li>
+    <li><span class="lg-bar done"></span>Hecho</li>
+    <li><span class="lg-bar late"></span>Atrasada</li>
+    <li><span class="diamond"></span>Hito</li>
+    <li><span class="lg-line deadline"></span>Entrega</li>
+    <li><span class="lg-line today"></span>Hoy</li>
+  </ul>
+</div>
