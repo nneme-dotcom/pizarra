@@ -16,7 +16,7 @@ export class PendingComponent {
   protected readonly products = PRODUCT_BY_ID;
   protected readonly statusLabel = STATUS_LABEL;
   protected readonly isLate = isLate;
-  protected readonly limit = 8;
+  protected readonly limit = 6;
 
   protected readonly open_ = computed(() =>
     this.tasks()
@@ -38,9 +38,9 @@ export class PendingComponent {
   protected when(t: Task): string {
     if (!t.due) return 'Sin fecha';
     const d = daysUntil(t.due);
-    if (d < 0) return `Atrasada ${-d} ${d === -1 ? 'día' : 'días'}`;
-    if (d === 0) return 'Vence hoy';
-    if (d === 1) return 'Vence mañana';
-    return `Faltan ${d} días`;
+    if (d < 0) return `${-d} ${d === -1 ? 'día' : 'días'} tarde`;
+    if (d === 0) return 'Hoy';
+    if (d === 1) return 'Mañana';
+    return `En ${d} días`;
   }
 }

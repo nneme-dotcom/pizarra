@@ -114,6 +114,8 @@ export class TimelineComponent {
       id: p.id,
       left: this.pct(dayNum(p.deadline!) + 0.5),
       label: shortDate(p.deadline),
+      // Si la entrega cae muy cerca de hoy, su etiqueta se solaparía con «Hoy»: se oculta
+      nearToday: this.today() !== null && Math.abs(this.pct(dayNum(p.deadline!) + 0.5) - this.today()!) < 2.5,
     })),
   );
 

@@ -4,9 +4,6 @@
   gap: 0.75rem;
   padding: 0.9rem 0.9rem 0.6rem 1.25rem;
   border-bottom: 1px solid var(--eagles-line);
-  background:
-    radial-gradient(ellipse at 100% 0%, rgba(106, 247, 120, 0.16), transparent 60%),
-    #050605;
 }
 
 .sheet-body {
@@ -28,21 +25,18 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   min-height: var(--eagles-touch);
   padding: 0 0.9rem;
   border-radius: var(--eagles-radius);
-  background: var(--eagles-surface-alt);
-  border: 1px solid transparent;
+  background: transparent;
+  border: 1px solid var(--eagles-line);
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--eagles-text-soft);
   cursor: pointer;
   transition: background-color 0.15s, border-color 0.15s;
 
-  &:hover { border-color: var(--eagles-line); }
+  &:hover { border-color: var(--eagles-line-strong); }
   &:focus-within { outline: 2px solid var(--eagles-lime); outline-offset: 2px; }
 
-  &.on { color: var(--eagles-on-lime); }
-  &.todo.on { background: var(--eagles-text); }
-  &.doing.on { background: var(--eagles-neon); }
-  &.done.on { background: var(--eagles-gradient); }
+  &.on { color: var(--eagles-text); border-color: var(--eagles-lime); }
 }
 
 fieldset:disabled .seg-opt { cursor: default; }

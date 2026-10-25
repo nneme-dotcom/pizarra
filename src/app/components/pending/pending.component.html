@@ -1,40 +1,29 @@
-<div class="card h-100">
-  <div class="card-body">
-    <div class="d-flex align-items-baseline justify-content-between gap-2 mb-3">
-      <h2 class="section-title">Pendiente</h2>
-      <span class="small text-body-secondary num">{{ open_().length }} tareas · {{ hours() }} h</span>
-    </div>
-
-    @if (open_().length === 0) {
-      <p class="text-body-secondary mb-0"><i class="bi bi-check2-all text-lime" aria-hidden="true"></i> No queda nada pendiente aquí.</p>
-    } @else {
-      <ol class="list-unstyled d-grid gap-2 mb-0">
-        @for (t of visible(); track t.id; let i = $index) {
-          <li [style.--i]="i">
-            <button type="button" class="item" [class.late]="isLate(t)" (click)="open.emit(t)">
-              <span class="date" aria-hidden="true">
-                <span class="date-day display num">{{ day(t.due) }}</span>
-                <span class="date-month">{{ month(t.due) }}</span>
-              </span>
-              <span class="info">
-                <span class="title">{{ t.title }}</span>
-                <span class="meta">
-                  <span class="prod-badge" [class.org]="t.product === 'ORG'">{{ products[t.product].short }}</span>
-                  <span><span class="status-dot me-1" [class]="t.status"></span>{{ statusLabel[t.status] }}</span>
-                  <span class="num">{{ t.estimate }} h</span>
-                  @if (t.milestone) { <span><i class="bi bi-diamond" aria-hidden="true"></i> Hito</span> }
-                </span>
-              </span>
-              <span class="when" [class.text-danger]="isLate(t)">{{ when(t) }}</span>
-            </button>
-          </li>
-        }
-      </ol>
-      @if (open_().length > limit) {
-        <button type="button" class="btn btn-ghost btn-sm w-100 mt-2" (click)="expanded.set(!expanded())">
-          {{ expanded() ? 'Ver menos' : 'Ver las ' + open_().length + ' tareas' }}
-        </button>
-      }
-    }
+<section aria-labelledby="pending-title">
+  <div class="head">
+    <h2 id="pending-title" class="section-title">Pendiente</h2>
+    <span class="count num">{{ open_().length }} · {{ hours() }} h</span>
   </div>
-</div>
+
+  @if (open_().length === 0) {
+    <p class="text-body-secondary small mb-0">No queda nada pendiente.</p>
+  } @else {
+    <ol class="list list-unstyled mb-0">
+      @for (t of visible(); track t.id) {
+        <li>
+          <button type="button" class="item" (click)="open.emit(t)">
+            <span class="date num" [class.text-danger]="isLate(t)">{{ day(t.due) }} {{ month(t.due) }}</span>
+            <span class="status-dot" [class]="t.status" role="img" [attr.aria-label]="statusLabel[t.status]"></span>
+            <span class="title">{{ t.title }}</span>
+            <span class="prod-badge" [class.org]="t.product === 'ORG'">{{ products[t.product].short }}</span>
+            <span class="when" [class.text-danger]="isLate(t)">{{ when(t) }}</span>
+          </button>
+        </li>
+      }
+    </ol>
+    @if (open_().length > limit) {
+      <button type="button" class="more" (click)="expanded.set(!expanded())">
+        {{ expanded() ? 'Ver menos' : 'Ver las ' + open_().length }}
+      </button>
+    }
+  }
+</section>
