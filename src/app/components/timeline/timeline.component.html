@@ -27,7 +27,9 @@
             <span class="tl-week num" [style.left.%]="w.left">{{ w.label }}</span>
           }
           @for (d of deadlines(); track d.id) {
+            @if (!d.nearToday) {
             <span class="tl-flag" [style.left.%]="d.left" [title]="'Entrega ' + d.id + ' · ' + d.label">{{ d.id }}</span>
+            }
           }
           @if (today() !== null) {
             <span class="tl-today-chip" [style.left.%]="today()">Hoy</span>
@@ -59,16 +61,16 @@
             }
             @if (g.deadline !== null) {
               <span class="tl-deliver" [style.left.%]="g.deadline" [title]="'Entrega ' + g.info.short + ' · ' + shortDate(g.info.deadline)">
-                <span class="diamond big"></span>
-                <span class="tl-deliver-label">{{ shortDate(g.info.deadline) }}@if (g.info.points) { · {{ g.info.points }} pts }</span>
+                <span class="diamond"></span>
+                <span class="tl-deliver-label">{{ shortDate(g.info.deadline) }}</span>
               </span>
             }
           </div>
         </div>
 
         @if (!collapsed().has(g.info.id)) {
-          @for (t of g.tasks; track t.id; let i = $index) {
-            <div class="tl-row tl-task" role="row" [class.late]="isLate(t)" [style.--i]="i">
+          @for (t of g.tasks; track t.id) {
+            <div class="tl-row tl-task" role="row" [class.late]="isLate(t)">
               <div class="tl-label" role="rowheader">
                 <button type="button" class="task-label" (click)="open.emit(t)" [title]="t.title">
                   <span class="status-dot" [class]="t.status" [attr.aria-label]="statusLabel[t.status]" role="img"></span>
@@ -91,7 +93,6 @@
                     [attr.aria-label]="barTitle(t)"
                     (click)="open.emit(t)"
                   >
-                    <span class="tl-bar-text num">{{ t.estimate }}h</span>
                   </button>
                 }
                 @if (milestoneLeft(t); as m) {
@@ -114,7 +115,6 @@
     <li><span class="lg-bar done"></span>Hecho</li>
     <li><span class="lg-bar late"></span>Atrasada</li>
     <li><span class="diamond"></span>Hito</li>
-    <li><span class="lg-line deadline"></span>Entrega</li>
     <li><span class="lg-line today"></span>Hoy</li>
   </ul>
 </div>

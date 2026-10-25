@@ -29,7 +29,7 @@
             @for (s of statuses; track s.id) {
               <label class="seg-opt" [class]="'seg-opt ' + s.id" [class.on]="draft.status === s.id">
                 <input type="radio" name="status" [value]="s.id" [(ngModel)]="draft.status" class="visually-hidden" />
-                <i class="bi" [class]="'bi ' + s.icon" aria-hidden="true"></i> {{ s.label }}
+                <span class="status-dot" [class]="s.id" aria-hidden="true"></span> {{ s.label }}
               </label>
             }
           </div>
@@ -47,7 +47,7 @@
           <div class="col-sm-6 d-flex align-items-end">
             <div class="form-check form-switch mb-2">
               <input id="f-milestone" class="form-check-input" type="checkbox" role="switch" name="milestone" [(ngModel)]="draft.milestone" />
-              <label class="form-check-label" for="f-milestone"><i class="bi bi-diamond" aria-hidden="true"></i> Hito (rombo en la línea temporal)</label>
+              <label class="form-check-label" for="f-milestone">Hito</label>
             </div>
           </div>
         </div>
@@ -110,7 +110,7 @@
           </button>
         </footer>
       } @else {
-        <p class="readonly-note"><i class="bi bi-eye" aria-hidden="true"></i> Acceso de solo lectura</p>
+        <p class="readonly-note">Solo lectura</p>
       }
     </form>
   </div>
